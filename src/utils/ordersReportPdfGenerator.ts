@@ -96,17 +96,17 @@ export const generateOrdersReportPDF = async (reportData: OrdersReportData) => {
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
   
-  // Column positions and widths (optimized for landscape)
+  // Column positions and widths (optimized for landscape with tighter spacing)
   const col1X = margin + 3; // Index
-  const col2X = margin + 18; // Order Number
-  const col3X = margin + 55; // Customer
-  const col4X = margin + 95; // Date
-  const col5X = margin + 115; // Items Summary
-  const col6X = margin + 180; // Total Qty
-  const col7X = margin + 200; // Subtotal
-  const col8X = margin + 225; // Discount
-  const col9X = margin + 245; // Final Total
-  const col10X = margin + 270; // Payment
+  const col2X = margin + 15; // Order Number
+  const col3X = margin + 45; // Customer
+  const col4X = margin + 75; // Date
+  const col5X = margin + 95; // Items Summary
+  const col6X = margin + 165; // Total Qty
+  const col7X = margin + 180; // Subtotal
+  const col8X = margin + 200; // Discount
+  const col9X = margin + 220; // Final Total
+  const col10X = margin + 245; // Payment
   
   doc.text('#', col1X, yPos + 6.5);
   doc.text('Order Number', col2X, yPos + 6.5);
@@ -166,11 +166,10 @@ export const generateOrdersReportPDF = async (reportData: OrdersReportData) => {
     const totalQuantity = order.items.reduce((sum, item) => sum + item.quantity, 0);
     const finalTotal = order.subtotal - order.discount;
     
-    // Create items summary (first 2-3 items with quantities)
+    // Create items summary (show ALL items with quantities)
     const itemsSummary = order.items
-      .slice(0, 3)
-      .map(item => `${item.productName.substring(0, 15)}(${item.quantity})`)
-      .join(', ') + (order.items.length > 3 ? '...' : '');
+      .map(item => `${item.productName.substring(0, 12)}(${item.quantity})`)
+      .join(', ');
 
     // Row data
     const rowY = yPos + 3;
@@ -190,7 +189,7 @@ export const generateOrdersReportPDF = async (reportData: OrdersReportData) => {
     doc.text(new Date(order.date).toLocaleDateString('en-GB'), col4X, rowY);
     
     // Handle long items summary with text wrapping
-    const maxSummaryWidth = 60;
+    const maxSummaryWidth = 65;
     const summaryLines = doc.splitTextToSize(itemsSummary, maxSummaryWidth);
     
     if (summaryLines.length > 1) {
@@ -266,9 +265,8 @@ export const generateOrdersReportPDF = async (reportData: OrdersReportData) => {
   doc.text(`• High Value Orders (>50K): ${highValueOrders} orders`, margin + 5, summaryY);
   doc.text(`• Total Discounts Given: PKR ${totalDiscount.toLocaleString()}`, margin + 5, summaryY + 5);
   doc.text(`• Cash Orders: ${cashOrders} | Credit Orders: ${creditOrders}`, margin + 5, summaryY + 10);
-  doc.text(`• Average Items per Order: ${(reportData.totalItems / reportData.totalOrders).toFixed(1)}`, margin + 5, summaryY + 15);
   
-  yPos += 45;
+  yPos += 35;
 
   // FOOTER
   const footerY = pageHeight - 20;
