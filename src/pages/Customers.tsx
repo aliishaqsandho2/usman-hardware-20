@@ -242,20 +242,51 @@ const Customers = () => {
         return;
       }
 
-      console.log('Exporting all customers:', customers.length);
-      generateAllCustomersPDF(customers);
+      console.log('Preparing to export ALL customers from API...');
+
+      // Fetch ALL customers across all pages (ignore current pagination)
+      const pageSize = 200; // higher page size to reduce requests
+      let page = 1;
+      let totalPages = 1;
+      const allCustomers: any[] = [];
+
+      do {
+        const resp = await customersApi.getAll({ page, limit: pageSize });
+        if (!resp.success) throw new Error(resp.message || 'Failed to fetch customers');
+
+        const batch = resp.data?.customers || resp.data || [];
+        const pag = resp.data?.pagination;
+        if (Array.isArray(batch)) allCustomers.push(...batch);
+        if (pag) {
+          totalPages = pag.totalPages || 1;
+        } else {
+          // If no pagination info, assume everything returned in one go
+          totalPages = 1;
+        }
+
+        console.log(`Fetched page ${page}/${totalPages}: +${batch.length} customers`);
+        page += 1;
+      } while (page <= totalPages);
+
+      if (allCustomers.length === 0) {
+        toast({ title: 'No Data', description: 'No customers available to export.', variant: 'destructive' });
+        return;
+      }
+
+      console.log('Exporting all customers:', allCustomers.length);
+      generateAllCustomersPDF(allCustomers);
       
       toast({
-        title: "Export Successful",
-        description: `All customers report has been downloaded with ${customers.length} customers.`,
+        title: 'Export Successful',
+        description: `All customers report has been downloaded with ${allCustomers.length} customers.`,
       });
       
     } catch (error) {
       console.error('Failed to export all customers:', error);
       toast({
-        title: "Export Failed",
-        description: "Failed to generate the customers report.",
-        variant: "destructive"
+        title: 'Export Failed',
+        description: 'Failed to generate the customers report.',
+        variant: 'destructive'
       });
     }
   };
