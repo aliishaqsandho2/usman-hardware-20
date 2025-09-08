@@ -10,18 +10,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Users, Search, Plus, Edit, CreditCard, Phone, MapPin, Calendar, Mail, Building, IdCard, Receipt, History, AlertCircle, Banknote, RefreshCw, Download } from "lucide-react";
+import { Users, Search, Plus, Edit, CreditCard, Phone, MapPin, Calendar, Mail, Building, IdCard, Receipt, History, AlertCircle, Banknote, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { customersApi } from "@/services/api";
 import { CustomerEditModal } from "@/components/customers/CustomerEditModal";
-import { useCustomerBalance } from "@/hooks/useCustomerBalance";
+
 import { CustomersList } from "@/components/customers/CustomersList";
 import { CustomersPagination } from "@/components/customers/CustomersPagination";
 import { generateAllCustomersPDF } from "@/utils/allCustomersPdfGenerator";
 
 const Customers = () => {
   const { toast } = useToast();
-  const { syncAllCustomerBalances } = useCustomerBalance();
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
@@ -29,7 +29,7 @@ const Customers = () => {
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [customersLoading, setCustomersLoading] = useState(false);
-  const [syncing, setSyncing] = useState(false);
+  
   const [pagination, setPagination] = useState({
     currentPage: 1,
     totalPages: 1,
@@ -138,18 +138,6 @@ const Customers = () => {
     fetchCustomers(page, searchTerm, customerTypeFilter);
   };
 
-  // Handle manual balance sync
-  const handleSyncBalances = async () => {
-    try {
-      setSyncing(true);
-      await syncAllCustomerBalances();
-      await fetchCustomers(pagination.currentPage);
-    } catch (error) {
-      console.error('Failed to sync balances:', error);
-    } finally {
-      setSyncing(false);
-    }
-  };
 
   const handleAddCustomer = async (formData: any) => {
     try {
@@ -290,15 +278,6 @@ const Customers = () => {
           >
             <Download className="h-4 w-4 mr-2" />
             Export All Customers
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={handleSyncBalances}
-            disabled={syncing}
-            className="bg-orange-50 hover:bg-orange-100 text-orange-600 border-orange-200 w-full sm:w-auto"
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-            {syncing ? 'Syncing...' : 'Sync Balances'}
           </Button>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
