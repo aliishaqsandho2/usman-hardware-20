@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { customersApi } from "@/services/api";
 import { CustomerEditModal } from "@/components/customers/CustomerEditModal";
 import { useCustomerBalance } from "@/hooks/useCustomerBalance";
-import { CustomerCards } from "@/components/customers/CustomerCards";
+import { CustomersList } from "@/components/customers/CustomersList";
 import { CustomersPagination } from "@/components/customers/CustomersPagination";
 import { generateAllCustomersPDF } from "@/utils/allCustomersPdfGenerator";
 
@@ -34,7 +34,7 @@ const Customers = () => {
     currentPage: 1,
     totalPages: 1,
     totalItems: 0,
-    itemsPerPage: 20
+    itemsPerPage: 50
   });
 
   // States for customer edit modal
@@ -56,7 +56,7 @@ const Customers = () => {
       setCustomersLoading(true);
       const params: any = {
         page,
-        limit: 20,
+        limit: 50,
         status: 'active',
         includeHistoricalData: true,
         allTime: true
@@ -85,7 +85,7 @@ const Customers = () => {
             currentPage: 1,
             totalPages: 1,
             totalItems: customersArray.length,
-            itemsPerPage: 20
+            itemsPerPage: 50
           });
         }
       } else {
@@ -392,8 +392,8 @@ const Customers = () => {
         </CardContent>
       </Card>
 
-      {/* Customers Grid */}
-      <CustomerCards
+      {/* Customers List */}
+      <CustomersList
         customers={customers}
         loading={customersLoading}
         onSelectCustomer={setSelectedCustomer}
