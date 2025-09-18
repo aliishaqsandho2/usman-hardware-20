@@ -4,7 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus } from "lucide-react";
 import { suppliersApi } from "@/services/api";
+import { SupplierForm } from "@/components/suppliers/SupplierForm";
 import { toast } from "sonner";
 
 interface OutsourcingModalProps {
@@ -44,6 +46,8 @@ export const OutsourcingModal: React.FC<OutsourcingModalProps> = ({
   const [notes, setNotes] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [loadingSuppliers, setLoadingSuppliers] = useState(false);
+  const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false);
+  const [isAddingSupplier, setIsAddingSupplier] = useState(false);
 
   // Load suppliers when modal opens
   useEffect(() => {
@@ -82,6 +86,31 @@ export const OutsourcingModal: React.FC<OutsourcingModalProps> = ({
       toast.error('Failed to load suppliers');
     } finally {
       setLoadingSuppliers(false);
+    }
+  };
+
+  const handleAddSupplier = async (formData: any) => {
+    try {
+      setIsAddingSupplier(true);
+      const response = await suppliersApi.create(formData);
+      
+      if (response?.success && response?.data) {
+        // Add the new supplier to the list
+        setSuppliers(prev => [...prev, response.data]);
+        // Select the new supplier
+        setSelectedSupplierId(response.data.id.toString());
+        // Close the add supplier modal
+        setIsAddSupplierOpen(false);
+        
+        toast.success('Supplier added successfully');
+      } else {
+        throw new Error('Failed to create supplier');
+      }
+    } catch (error) {
+      console.error('Failed to add supplier:', error);
+      toast.error('Failed to add supplier');
+    } finally {
+      setIsAddingSupplier(false);
     }
   };
 
@@ -154,31 +183,43 @@ export const OutsourcingModal: React.FC<OutsourcingModalProps> = ({
               <Label htmlFor="supplier" className="text-sm font-medium">
                 Select Supplier *
               </Label>
-              <Select 
-                value={selectedSupplierId} 
-                onValueChange={setSelectedSupplierId}
-                disabled={loadingSuppliers}
-              >
-                <SelectTrigger className="bg-background">
-                  <SelectValue placeholder={
-                    loadingSuppliers ? "Loading suppliers..." : "Choose a supplier"
-                  } />
-                </SelectTrigger>
-                <SelectContent>
-                  {suppliers.map((supplier) => (
-                    <SelectItem key={supplier.id} value={supplier.id.toString()}>
-                      <div>
-                        <div className="font-medium">{supplier.name}</div>
-                        {supplier.contact_person && (
-                          <div className="text-xs text-muted-foreground">
-                            Contact: {supplier.contact_person}
-                          </div>
-                        )}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex gap-2">
+                <Select 
+                  value={selectedSupplierId} 
+                  onValueChange={setSelectedSupplierId}
+                  disabled={loadingSuppliers}
+                >
+                  <SelectTrigger className="bg-background flex-1">
+                    <SelectValue placeholder={
+                      loadingSuppliers ? "Loading suppliers..." : "Choose a supplier"
+                    } />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {suppliers.map((supplier) => (
+                      <SelectItem key={supplier.id} value={supplier.id.toString()}>
+                        <div>
+                          <div className="font-medium">{supplier.name}</div>
+                          {supplier.contact_person && (
+                            <div className="text-xs text-muted-foreground">
+                              Contact: {supplier.contact_person}
+                            </div>
+                          )}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="px-3 flex-shrink-0"
+                  onClick={() => setIsAddSupplierOpen(true)}
+                  disabled={loadingSuppliers}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
               {suppliers.length === 0 && !loadingSuppliers && (
                 <p className="text-xs text-muted-foreground">
                   No suppliers available. Please add suppliers first.
@@ -275,6 +316,20 @@ export const OutsourcingModal: React.FC<OutsourcingModalProps> = ({
           </div>
         )}
       </DialogContent>
+
+      {/* Add Supplier Modal */}
+      <Dialog open={isAddSupplierOpen} onOpenChange={setIsAddSupplierOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Add New Supplier</DialogTitle>
+          </DialogHeader>
+          <SupplierForm 
+            onSubmit={handleAddSupplier}
+            onClose={() => setIsAddSupplierOpen(false)}
+            isLoading={isAddingSupplier}
+          />
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 };

@@ -5,9 +5,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { FontProvider } from "@/components/FontProvider";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Header } from "@/components/Header";
 import Dashboard from "./pages/Dashboard";
+import AutoMate from "./pages/AutoMate";
 import Products from "./pages/Products";
 import Sales from "./pages/Sales";
 import Orders from "./pages/Orders";
@@ -34,7 +36,8 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider defaultTheme="system" storageKey="hardware-store-theme">
-      <TooltipProvider>
+      <FontProvider defaultFont="inter" storageKey="hardware-store-font">
+        <TooltipProvider>
         <Toaster />
         <Sonner />
         <BrowserRouter>
@@ -44,9 +47,10 @@ const App = () => (
               <div className="flex-1 flex flex-col overflow-hidden">
                 <Header />
                 <main className="flex-1 overflow-auto custom-scrollbar">
-                  <Routes>
-                    <Route path="/" element={<Dashboard />} />
-                    <Route path="/profit" element={<Profit />} />
+                   <Routes>
+                     <Route path="/" element={<Dashboard />} />
+                     <Route path="/automate" element={<AutoMate />} />
+                     <Route path="/profit" element={<Profit />} />
                     <Route path="/products" element={<Products />} />
                     <Route path="/sales" element={<Sales />} />
                     <Route path="/orders" element={<Orders />} />
@@ -72,7 +76,8 @@ const App = () => (
             </div>
           </SidebarProvider>
         </BrowserRouter>
-      </TooltipProvider>
+        </TooltipProvider>
+      </FontProvider>
     </ThemeProvider>
   </QueryClientProvider>
 );

@@ -9,7 +9,7 @@ import { OrdersSummaryCards } from "@/components/orders/OrdersSummaryCards";
 import { OrdersFilters } from "@/components/orders/OrdersFilters";
 import { OrdersTable } from "@/components/orders/OrdersTable";
 import { useOrderPDFGenerator } from "@/components/orders/OrdersPDFGenerator";
-import jsPDF from 'jspdf';
+import { generateOrdersReportPDF } from "@/utils/ordersReportPdfGenerator";
 
 interface Sale {
   id: number;
@@ -235,9 +235,7 @@ const Orders = () => {
         const totalItems = filteredOrders.reduce((sum: number, order: Sale) => sum + order.items.reduce((itemSum, item) => itemSum + item.quantity, 0), 0);
         const avgOrderValue = filteredOrders.length > 0 ? totalSales / filteredOrders.length : 0;
 
-        // Use the professional PDF generator
-        const { generateOrdersReportPDF } = await import('@/utils/ordersReportPdfGenerator');
-        
+        // Build report payload and generate PDF
         const reportData = {
           title: 'ORDERS EXPORT REPORT',
           orders: filteredOrders,
@@ -248,7 +246,6 @@ const Orders = () => {
           avgOrderValue: avgOrderValue,
           filters: filterText
         };
-        
         const filename = await generateOrdersReportPDF(reportData);
 
         toast({

@@ -1,4 +1,5 @@
 import jsPDF from 'jspdf';
+import { formatQuantity } from '@/lib/utils';
 
 interface OrderItem {
   productId: number;
@@ -156,20 +157,51 @@ export const generateOrdersReportPDF = async (reportData: OrdersReportData) => {
       doc.setFont('helvetica', 'normal');
     }
 
-    // Alternating row colors
-    if (index % 2 === 1) {
-      doc.setFillColor(250, 250, 250);
-      doc.rect(margin, yPos - 2, pageWidth - 2 * margin, 8, 'F');
-    }
-
     // Calculate order data
     const totalQuantity = order.items.reduce((sum, item) => sum + item.quantity, 0);
     const finalTotal = order.subtotal - order.discount;
     
     // Create items summary (show ALL items with quantities)
     const itemsSummary = order.items
-      .map(item => `${item.productName.substring(0, 12)}(${item.quantity})`)
-      .join(', ');
+      .map(item => `${item.productName} (${formatQuantity(item.quantity)})`)
+      .join('  •  ');
+    
+    // Calculate text wrapping for proper row height
+    const maxSummaryWidth = 65;
+    const summaryLines = doc.splitTextToSize(itemsSummary, maxSummaryWidth);
+    const lineHeight = 4.2; // mm between wrapped lines (more spacing between items)
+    const dynamicRowHeight = Math.max(7, summaryLines.length * lineHeight + 5);
+
+    // If row won't fit, start a new page with repeated header
+    if (yPos + dynamicRowHeight > pageHeight - 40) {
+      doc.addPage();
+      yPos = margin;
+      doc.setFillColor(26, 54, 93);
+      doc.roundedRect(margin, yPos, pageWidth - 2 * margin, 10, 1, 1, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.text('#', col1X, yPos + 6.5);
+      doc.text('Order Number', col2X, yPos + 6.5);
+      doc.text('Customer', col3X, yPos + 6.5);
+      doc.text('Date', col4X, yPos + 6.5);
+      doc.text('Items Summary', col5X, yPos + 6.5);
+      doc.text('Qty', col6X, yPos + 6.5);
+      doc.text('Subtotal', col7X, yPos + 6.5);
+      doc.text('Discount', col8X, yPos + 6.5);
+      doc.text('Final Total', col9X, yPos + 6.5);
+      doc.text('Payment', col10X, yPos + 6.5);
+      yPos += 12;
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+    }
+
+    // Alternating row colors with dynamic height
+    if (index % 2 === 1) {
+      doc.setFillColor(250, 250, 250);
+      doc.rect(margin, yPos - 1, pageWidth - 2 * margin, dynamicRowHeight + 2, 'F');
+    }
 
     // Row data
     const rowY = yPos + 3;
@@ -188,20 +220,13 @@ export const generateOrdersReportPDF = async (reportData: OrdersReportData) => {
     
     doc.text(new Date(order.date).toLocaleDateString('en-GB'), col4X, rowY);
     
-    // Handle long items summary with text wrapping
-    const maxSummaryWidth = 65;
-    const summaryLines = doc.splitTextToSize(itemsSummary, maxSummaryWidth);
-    
-    if (summaryLines.length > 1) {
-      // Multi-line items summary
-      summaryLines.slice(0, 2).forEach((line: string, lineIndex: number) => {
-        doc.text(line, col5X, rowY + (lineIndex * 3));
+    // Handle long items summary with optimized text wrapping
+    if (summaryLines.length > 0) {
+      summaryLines.forEach((line: string, lineIndex: number) => {
+        doc.text(line, col5X, rowY + (lineIndex * lineHeight));
       });
-      yPos += Math.max(6, summaryLines.slice(0, 2).length * 3);
     } else {
-      // Single line
       doc.text(itemsSummary, col5X, rowY);
-      yPos += 6;
     }
     
     // Reset yPos for other columns to align with first line
@@ -234,7 +259,8 @@ export const generateOrdersReportPDF = async (reportData: OrdersReportData) => {
       order.paymentMethod.substring(0, 8) : order.paymentMethod;
     doc.text(paymentMethod, col10X, otherColY);
     
-    yPos += 2; // Extra spacing between rows
+    // Update yPos with calculated row height + minimal spacing
+    yPos += dynamicRowHeight + 2; // Slightly more spacing to avoid clipping
   });
 
   // SUMMARY SECTION

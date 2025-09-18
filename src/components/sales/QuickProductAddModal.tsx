@@ -11,31 +11,14 @@ import { useToast } from "@/hooks/use-toast";
 import { productsApi } from "@/services/api";
 import { Package, AlertTriangle, RefreshCw } from "lucide-react";
 import { generateSKU } from "@/utils/skuGenerator";
+import { units as predefinedUnits } from "@/data/storeData";
 
 // Units Select Component
 const UnitsSelect = ({ value, onValueChange }: { value: string; onValueChange: (value: string) => void }) => {
   const [units, setUnits] = useState<any[]>([]);
 
   useEffect(() => {
-    const loadUnits = async () => {
-      try {
-        const { units: predefinedUnits } = await import("@/data/storeData");
-        setUnits(predefinedUnits);
-      } catch (error) {
-        console.error('Failed to load units:', error);
-        // Fallback units
-        setUnits([
-          { value: "piece", label: "Piece" },
-          { value: "kg", label: "Kilogram" },
-          { value: "meter", label: "Meter" },
-          { value: "liter", label: "Liter" },
-          { value: "box", label: "Box" },
-          { value: "pack", label: "Pack" }
-        ]);
-      }
-    };
-
-    loadUnits();
+    setUnits(predefinedUnits);
   }, []);
 
   return (

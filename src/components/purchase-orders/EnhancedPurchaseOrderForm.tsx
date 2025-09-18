@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { suppliersApi, productsApi, categoriesApi } from "@/services/api";
 import { generateSKU } from "@/utils/skuGenerator";
+import { units as predefinedUnits } from "@/data/storeData";
 
 interface PurchaseOrderFormProps {
   onSubmit: (data: any) => void;
@@ -83,12 +84,13 @@ export const EnhancedPurchaseOrderForm = ({ onSubmit, onClose, isLoading }: Purc
         : [];
       setCategories(categoryList);
     }
-
-    // Use predefined comprehensive units instead of API
-    import("@/data/storeData").then(({ units: predefinedUnits }) => {
-      setUnits(predefinedUnits);
-    });
   }, [categoriesData]);
+
+  // Load units on component mount
+  useEffect(() => {
+    // Use predefined comprehensive units instead of API
+    setUnits(predefinedUnits);
+  }, []);
 
   // Create supplier mutation
   const createSupplierMutation = useMutation({

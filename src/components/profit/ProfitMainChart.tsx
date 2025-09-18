@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { profitApi } from "@/services/profitApi";
+import { profitApi, MonthlyReport } from "@/services/profitApi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -28,6 +28,18 @@ const formatCurrency = (value: string | number) => {
   }).format(num).replace('PKR', 'Rs ');
 };
 
+const formatNumber = (value: string | number) => {
+  const num = typeof value === 'string' ? parseFloat(value) : value;
+  if (num >= 10000000) {
+    return (num / 10000000).toFixed(1) + 'Cr';
+  } else if (num >= 100000) {
+    return (num / 100000).toFixed(1) + 'L';
+  } else if (num >= 1000) {
+    return (num / 1000).toFixed(1) + 'K';
+  }
+  return num.toFixed(0);
+};
+
 const formatPercentage = (value: string | number) => {
   const num = typeof value === 'string' ? parseFloat(value) : value;
   return `${num.toFixed(1)}%`;
@@ -42,12 +54,12 @@ export default function ProfitMainChart() {
 
   const { data: dailyTrends, isLoading: dailyLoading } = useQuery({
     queryKey: ['profit-daily-trends-main'],
-    queryFn: () => profitApi.getWeeklyTrends(4), // Last 4 weeks for daily breakdown
+    queryFn: () => profitApi.getDailyProfitData(),
   });
 
   const { data: monthlyTrends, isLoading: monthlyLoading } = useQuery({
     queryKey: ['profit-monthly-trends-main'],
-    queryFn: () => profitApi.getMonthlyTrends(12), // Last 12 months
+    queryFn: () => profitApi.getMonthlyReport(), // Last 6 months
   });
 
   const { data: ytdSummary, isLoading: ytdLoading } = useQuery({
@@ -58,13 +70,17 @@ export default function ProfitMainChart() {
   const isLoading = weeklyLoading || dailyLoading || monthlyLoading || ytdLoading;
 
   // Transform data for charts
-  const dailyChartData = dailyTrends?.map((trend, index) => ({
-    period: `Day ${7 - index}`,
-    profit: parseFloat(trend.weekly_profit) / 7, // Approximate daily from weekly
-    revenue: parseFloat(trend.weekly_revenue) / 7,
-    margin: parseFloat(trend.week_margin),
-    sales: Math.round(parseInt(trend.sales_count) / 7)
-  })).reverse();
+  const dailyChartData = dailyTrends?.map((trend) => ({
+    period: new Date(trend.date).toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric' 
+    }),
+    profit: parseFloat(trend.profit),
+    revenue: parseFloat(trend.revenue),
+    margin: parseFloat(trend.profit_margin),
+    sales: parseInt(trend.sales_count),
+    date: trend.date
+  })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   const weeklyChartData = weeklyTrends?.map(trend => ({
     period: `Week ${trend.week_number}`,
@@ -76,11 +92,11 @@ export default function ProfitMainChart() {
 
   const monthlyChartData = monthlyTrends?.map(trend => ({
     period: trend.period,
-    profit: parseFloat(trend.monthly_profit),
-    revenue: parseFloat(trend.monthly_revenue),
-    margin: parseFloat(trend.margin),
+    profit: parseFloat(trend.profit),
+    revenue: parseFloat(trend.revenue),
+    margin: parseFloat(trend.profit_margin),
     sales: parseInt(trend.sales_count)
-  }));
+  })).reverse(); // Reverse to show chronological order
 
   // Create yearly data (with starting point to show progression)
   const yearlyChartData = ytdSummary ? [
@@ -194,51 +210,142 @@ export default function ProfitMainChart() {
                 <span>Revenue</span>
               </div>
             </div>
-            <ResponsiveContainer width="100%" height={400}>
-              <LineChart data={dailyChartData}>
+            <ResponsiveContainer width="100%" height={420}>
+              <LineChart data={dailyChartData} margin={{ top: 30, right: 40, left: 20, bottom: 30 }}>
                 <defs>
                   <linearGradient id="profitGradientDaily" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#10B981" stopOpacity={0.1}/>
+                    <stop offset="0%" stopColor="#10B981" stopOpacity={0.4}/>
+                    <stop offset="50%" stopColor="#10B981" stopOpacity={0.2}/>
+                    <stop offset="100%" stopColor="#10B981" stopOpacity={0.05}/>
                   </linearGradient>
+                  <linearGradient id="revenueGradientDaily" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.4}/>
+                    <stop offset="50%" stopColor="#3B82F6" stopOpacity={0.2}/>
+                    <stop offset="100%" stopColor="#3B82F6" stopOpacity={0.05}/>
+                  </linearGradient>
+                  
+                  {/* Glow effects */}
+                  <filter id="profitGlow">
+                    <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor="#10B981" floodOpacity="0.4"/>
+                  </filter>
+                  <filter id="revenueGlow">
+                    <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor="#3B82F6" floodOpacity="0.4"/>
+                  </filter>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted-foreground))" opacity={0.2} />
+                
+                <CartesianGrid 
+                  strokeDasharray="2 4" 
+                  stroke="hsl(var(--muted-foreground))" 
+                  opacity={0.12}
+                  horizontal={true}
+                  vertical={false}
+                />
+                
                 <XAxis 
                   dataKey="period" 
                   stroke="hsl(var(--muted-foreground))"
                   fontSize={12}
+                  fontWeight={500}
+                  axisLine={false}
+                  tickLine={false}
+                  dy={10}
+                  className="text-slate-600 dark:text-slate-400"
                 />
+                
                 <YAxis 
+                  yAxisId="left"
                   stroke="hsl(var(--muted-foreground))"
                   fontSize={12}
+                  fontWeight={500}
+                  tickFormatter={(value) => formatNumber(value)}
+                  axisLine={false}
+                  tickLine={false}
+                  dx={-10}
+                  className="text-slate-600 dark:text-slate-400"
                 />
+                <YAxis 
+                  yAxisId="right"
+                  orientation="right"
+                  stroke="#10B981"
+                  fontSize={12}
+                  fontWeight={500}
+                  tickFormatter={(value) => formatNumber(value)}
+                  axisLine={false}
+                  tickLine={false}
+                  dx={10}
+                  className="text-emerald-600 dark:text-emerald-400"
+                />
+                
                 <Tooltip 
                   contentStyle={{
-                    backgroundColor: 'hsl(var(--background))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                    backgroundColor: 'rgba(255, 255, 255, 0.98)',
+                    backdropFilter: 'blur(20px)',
+                    border: '1px solid rgba(148, 163, 184, 0.15)',
+                    borderRadius: '16px',
+                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.5)',
+                    padding: '16px 20px',
+                    fontSize: '14px',
+                    fontFamily: 'system-ui, -apple-system, sans-serif'
+                  }}
+                  labelStyle={{
+                    color: 'hsl(var(--foreground))',
+                    fontWeight: 600,
+                    marginBottom: '12px',
+                    fontSize: '15px'
                   }}
                   formatter={(value, name) => [
-                    name === 'margin' ? formatPercentage(value as number) : formatCurrency(value as number),
-                    name === 'profit' ? 'Profit' : name === 'revenue' ? 'Revenue' : 'Margin'
+                    formatCurrency(value as number),
+                    name === 'profit' ? '💰 Daily Profit' : '📊 Daily Revenue'
                   ]}
+                  labelFormatter={(label) => `📅 ${label}`}
                 />
-                <Line 
-                  type="monotone" 
-                  dataKey="profit" 
-                  stroke="#10B981" 
-                  strokeWidth={3}
-                  dot={{ fill: '#10B981', strokeWidth: 2, r: 4 }}
-                  activeDot={{ r: 6, stroke: '#10B981', strokeWidth: 2 }}
-                />
+                
+                {/* Revenue Line with Enhanced Styling */}
                 <Line 
                   type="monotone" 
                   dataKey="revenue" 
+                  yAxisId="left"
                   stroke="#3B82F6" 
-                  strokeWidth={2}
-                  dot={{ fill: '#3B82F6', strokeWidth: 2, r: 4 }}
-                  activeDot={{ r: 6, stroke: '#3B82F6', strokeWidth: 2 }}
+                  strokeWidth={4}
+                  filter="url(#revenueGlow)"
+                  dot={{ 
+                    fill: '#3B82F6', 
+                    strokeWidth: 3, 
+                    r: 7,
+                    stroke: '#ffffff',
+                    filter: 'drop-shadow(0 3px 6px rgba(59, 130, 246, 0.4))'
+                  }}
+                  activeDot={{ 
+                    r: 10, 
+                    stroke: '#3B82F6', 
+                    strokeWidth: 4,
+                    fill: '#ffffff',
+                    filter: 'drop-shadow(0 6px 20px rgba(59, 130, 246, 0.6))'
+                  }}
+                />
+                
+                {/* Profit Line with Enhanced Styling */}
+                <Line 
+                  type="monotone" 
+                  dataKey="profit" 
+                  yAxisId="right"
+                  stroke="#10B981" 
+                  strokeWidth={4}
+                  filter="url(#profitGlow)"
+                  dot={{ 
+                    fill: '#10B981', 
+                    strokeWidth: 3, 
+                    r: 7,
+                    stroke: '#ffffff',
+                    filter: 'drop-shadow(0 3px 6px rgba(16, 185, 129, 0.4))'
+                  }}
+                  activeDot={{ 
+                    r: 10, 
+                    stroke: '#10B981', 
+                    strokeWidth: 4,
+                    fill: '#ffffff',
+                    filter: 'drop-shadow(0 6px 20px rgba(16, 185, 129, 0.6))'
+                  }}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -303,8 +410,16 @@ export default function ProfitMainChart() {
                   fontSize={12}
                 />
                 <YAxis 
+                  yAxisId="left"
                   stroke="hsl(var(--muted-foreground))"
                   fontSize={12}
+                />
+                <YAxis 
+                  yAxisId="right"
+                  orientation="right"
+                  stroke="#10B981"
+                  fontSize={12}
+                  tickFormatter={(value) => formatNumber(value)}
                 />
                 <Tooltip 
                   contentStyle={{
@@ -321,6 +436,7 @@ export default function ProfitMainChart() {
                 <Line 
                   type="monotone" 
                   dataKey="profit" 
+                  yAxisId="right"
                   stroke="#10B981" 
                   strokeWidth={3}
                   dot={{ fill: '#10B981', strokeWidth: 2, r: 4 }}
@@ -329,6 +445,7 @@ export default function ProfitMainChart() {
                 <Line 
                   type="monotone" 
                   dataKey="revenue" 
+                  yAxisId="left"
                   stroke="#3B82F6" 
                   strokeWidth={2}
                   dot={{ fill: '#3B82F6', strokeWidth: 2, r: 4 }}
@@ -378,55 +495,146 @@ export default function ProfitMainChart() {
                 <span>Profit</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-amber-500 rounded-full"></div>
-                <span>Margin %</span>
+                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                <span>Revenue</span>
               </div>
             </div>
-            <ResponsiveContainer width="100%" height={400}>
-              <LineChart data={monthlyChartData}>
+            <ResponsiveContainer width="100%" height={420}>
+              <LineChart data={monthlyChartData} margin={{ top: 30, right: 40, left: 20, bottom: 30 }}>
                 <defs>
                   <linearGradient id="profitGradientMonthly" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#10B981" stopOpacity={0.1}/>
+                    <stop offset="0%" stopColor="#10B981" stopOpacity={0.4}/>
+                    <stop offset="50%" stopColor="#10B981" stopOpacity={0.2}/>
+                    <stop offset="100%" stopColor="#10B981" stopOpacity={0.05}/>
                   </linearGradient>
+                  <linearGradient id="revenueGradientMonthly" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.4}/>
+                    <stop offset="50%" stopColor="#3B82F6" stopOpacity={0.2}/>
+                    <stop offset="100%" stopColor="#3B82F6" stopOpacity={0.05}/>
+                  </linearGradient>
+                  
+                  {/* Glow effects */}
+                  <filter id="profitGlowMonthly">
+                    <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor="#10B981" floodOpacity="0.4"/>
+                  </filter>
+                  <filter id="revenueGlowMonthly">
+                    <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor="#3B82F6" floodOpacity="0.4"/>
+                  </filter>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted-foreground))" opacity={0.2} />
+                
+                <CartesianGrid 
+                  strokeDasharray="2 4" 
+                  stroke="hsl(var(--muted-foreground))" 
+                  opacity={0.12}
+                  horizontal={true}
+                  vertical={false}
+                />
+                
                 <XAxis 
                   dataKey="period" 
                   stroke="hsl(var(--muted-foreground))"
                   fontSize={12}
+                  fontWeight={500}
+                  axisLine={false}
+                  tickLine={false}
+                  dy={10}
+                  className="text-slate-600 dark:text-slate-400"
                 />
+                
                 <YAxis 
+                  yAxisId="left"
                   stroke="hsl(var(--muted-foreground))"
                   fontSize={12}
+                  fontWeight={500}
+                  tickFormatter={(value) => formatNumber(value)}
+                  axisLine={false}
+                  tickLine={false}
+                  dx={-10}
+                  className="text-slate-600 dark:text-slate-400"
                 />
+                <YAxis 
+                  yAxisId="right"
+                  orientation="right"
+                  stroke="#10B981"
+                  fontSize={12}
+                  fontWeight={500}
+                  tickFormatter={(value) => formatNumber(value)}
+                  axisLine={false}
+                  tickLine={false}
+                  dx={10}
+                  className="text-emerald-600 dark:text-emerald-400"
+                />
+                
                 <Tooltip 
                   contentStyle={{
-                    backgroundColor: 'hsl(var(--background))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                    backgroundColor: 'rgba(255, 255, 255, 0.98)',
+                    backdropFilter: 'blur(20px)',
+                    border: '1px solid rgba(148, 163, 184, 0.15)',
+                    borderRadius: '16px',
+                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.5)',
+                    padding: '16px 20px',
+                    fontSize: '14px',
+                    fontFamily: 'system-ui, -apple-system, sans-serif'
+                  }}
+                  labelStyle={{
+                    color: 'hsl(var(--foreground))',
+                    fontWeight: 600,
+                    marginBottom: '12px',
+                    fontSize: '15px'
                   }}
                   formatter={(value, name) => [
-                    name === 'margin' ? formatPercentage(value as number) : formatCurrency(value as number),
-                    name === 'profit' ? 'Profit' : name === 'revenue' ? 'Revenue' : 'Margin'
+                    formatCurrency(value as number),
+                    name === 'profit' ? '💰 Monthly Profit' : '📊 Monthly Revenue'
                   ]}
+                  labelFormatter={(label) => `📅 ${label}`}
                 />
+                
+                {/* Revenue Line with Enhanced Styling */}
+                <Line 
+                  type="monotone" 
+                  dataKey="revenue" 
+                  yAxisId="left"
+                  stroke="#3B82F6" 
+                  strokeWidth={4}
+                  filter="url(#revenueGlowMonthly)"
+                  dot={{ 
+                    fill: '#3B82F6', 
+                    strokeWidth: 3, 
+                    r: 7,
+                    stroke: '#ffffff',
+                    filter: 'drop-shadow(0 3px 6px rgba(59, 130, 246, 0.4))'
+                  }}
+                  activeDot={{ 
+                    r: 10, 
+                    stroke: '#3B82F6', 
+                    strokeWidth: 4,
+                    fill: '#ffffff',
+                    filter: 'drop-shadow(0 6px 20px rgba(59, 130, 246, 0.6))'
+                  }}
+                />
+                
+                {/* Profit Line with Enhanced Styling */}
                 <Line 
                   type="monotone" 
                   dataKey="profit" 
+                  yAxisId="right"
                   stroke="#10B981" 
-                  strokeWidth={3}
-                  dot={{ fill: '#10B981', strokeWidth: 2, r: 4 }}
-                  activeDot={{ r: 6, stroke: '#10B981', strokeWidth: 2 }}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="margin" 
-                  stroke="#F59E0B" 
-                  strokeWidth={2}
-                  dot={{ fill: '#F59E0B', strokeWidth: 2, r: 4 }}
-                  activeDot={{ r: 6, stroke: '#F59E0B', strokeWidth: 2 }}
+                  strokeWidth={4}
+                  filter="url(#profitGlowMonthly)"
+                  dot={{ 
+                    fill: '#10B981', 
+                    strokeWidth: 3, 
+                    r: 7,
+                    stroke: '#ffffff',
+                    filter: 'drop-shadow(0 3px 6px rgba(16, 185, 129, 0.4))'
+                  }}
+                  activeDot={{ 
+                    r: 10, 
+                    stroke: '#10B981', 
+                    strokeWidth: 4,
+                    fill: '#ffffff',
+                    filter: 'drop-shadow(0 6px 20px rgba(16, 185, 129, 0.6))'
+                  }}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -490,8 +698,16 @@ export default function ProfitMainChart() {
                   fontSize={12}
                 />
                 <YAxis 
+                  yAxisId="left"
                   stroke="hsl(var(--muted-foreground))"
                   fontSize={12}
+                />
+                <YAxis 
+                  yAxisId="right"
+                  orientation="right"
+                  stroke="#10B981"
+                  fontSize={12}
+                  tickFormatter={(value) => formatNumber(value)}
                 />
                 <Tooltip 
                   contentStyle={{
@@ -508,6 +724,7 @@ export default function ProfitMainChart() {
                 <Line 
                   type="monotone" 
                   dataKey="profit" 
+                  yAxisId="right"
                   stroke="#10B981" 
                   strokeWidth={4}
                   dot={{ fill: '#10B981', strokeWidth: 2, r: 6 }}
@@ -516,6 +733,7 @@ export default function ProfitMainChart() {
                 <Line 
                   type="monotone" 
                   dataKey="revenue" 
+                  yAxisId="left"
                   stroke="#3B82F6" 
                   strokeWidth={3}
                   dot={{ fill: '#3B82F6', strokeWidth: 2, r: 6 }}

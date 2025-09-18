@@ -26,6 +26,7 @@ import { Eye } from "lucide-react";
 import { generateSKU } from "@/utils/skuGenerator";
 import { formatQuantity } from "@/lib/utils";
 import { generateStockReportPDF } from "@/utils/stockReportPdfGenerator";
+import { units as predefinedUnits } from "@/data/storeData";
 
 const Products = () => {
   const { toast } = useToast();
@@ -99,9 +100,8 @@ const Products = () => {
     }
   };
 
-  const fetchUnits = async () => {
+  const fetchUnits = () => {
     // Use predefined comprehensive units list instead of API call
-    const { units: predefinedUnits } = await import("@/data/storeData");
     setUnits(predefinedUnits);
   };
 

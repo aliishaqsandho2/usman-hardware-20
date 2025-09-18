@@ -30,7 +30,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { apiConfig } from "@/utils/apiConfig";
 
-const GEMINI_API_KEY = "AIzaSyDscgxHRLCy4suVBigT1g_pXMnE7tH_Ejw";
+const GEMINI_API_KEY = "AIzaSyCa4pclqzhR4PaUyr81irTxp1rPQzEK3IU";
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 
 interface Message {

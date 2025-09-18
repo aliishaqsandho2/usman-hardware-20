@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Package, Search, Plus, Minus, Pin, PinOff, Filter, Menu, X, AlertTriangle, Maximize, Minimize } from "lucide-react";
+import { Package, Search, Plus, Minus, Pin, PinOff, Filter, Menu, X, AlertTriangle, Maximize, Minimize, LayoutGrid, Columns2, Columns3, Columns4, Grid3X3, Grid2X2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { salesApi, customersApi, productsApi, suppliersApi } from "@/services/api";
 import { QuickCustomerForm } from "@/components/QuickCustomerForm";
@@ -57,6 +57,29 @@ const Sales = () => {
   const [isCustomerDialogOpen, setIsCustomerDialogOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isCartCollapsed, setIsCartCollapsed] = useState(false);
+  const [productsLayout, setProductsLayout] = useState(5); // Default to 5 products per line
+  const [isProcessingSale, setIsProcessingSale] = useState(false); // Prevent double-clicking complete sale
+
+  // Load layout preference from localStorage
+  useEffect(() => {
+    const savedLayout = localStorage.getItem('salesLayoutPreference');
+    if (savedLayout) {
+      const layoutValue = parseInt(savedLayout);
+      if (layoutValue >= 1 && layoutValue <= 7) {
+        setProductsLayout(layoutValue);
+      }
+    }
+  }, []);
+
+  // Save layout preference to localStorage when it changes
+  const handleLayoutChange = (newLayout: number) => {
+    setProductsLayout(newLayout);
+    localStorage.setItem('salesLayoutPreference', newLayout.toString());
+    toast({
+      title: "Layout Updated",
+      description: `Products layout set to ${newLayout === 1 ? 'Slim' : newLayout + ' columns'}`,
+    });
+  };
 
   // Fullscreen toggle function
   const toggleFullscreen = () => {
@@ -311,15 +334,33 @@ const formatPakistaniTime = (timeString: string): string => {
   };
 
   const updateItemPrice = (productId: number, newPrice: number) => {
-    setCart(cart.map(item => 
-      item.productId === productId 
-        ? { ...item, adjustedPrice: newPrice }
-        : item
-    ));
+    console.log('updateItemPrice called with:', { productId, newPrice });
+    
+    setCart(prevCart => {
+      const updatedCart = prevCart.map(item => {
+        if (item.productId === productId) {
+          console.log('Updating item price:', { 
+            productId: item.productId, 
+            oldPrice: item.price, 
+            oldAdjustedPrice: item.adjustedPrice,
+            newPrice 
+          });
+          return { ...item, adjustedPrice: newPrice };
+        }
+        return item;
+      });
+      console.log('Updated cart:', updatedCart);
+      return updatedCart;
+    });
+    
+    const originalItem = cart.find(item => item.productId === productId);
+    const originalPrice = originalItem?.price || 0;
+    const priceChange = newPrice - originalPrice;
+    const changeType = priceChange > 0 ? 'increased' : priceChange < 0 ? 'reduced' : 'set';
     
     toast({
       title: "Price Updated",
-      description: "Item price has been adjusted for negotiation",
+      description: `Item price has been ${changeType} to PKR ${newPrice.toLocaleString()} (${priceChange >= 0 ? '+' : ''}${priceChange.toLocaleString()} from original)`,
     });
   };
 
@@ -379,7 +420,19 @@ const formatPakistaniTime = (timeString: string): string => {
       return;
     }
 
+    // Prevent double-clicking - check if sale is already being processed
+    if (isProcessingSale) {
+      toast({
+        title: "Processing Sale",
+        description: "Please wait, your sale is being processed...",
+        variant: "default"
+      });
+      return;
+    }
+
     try {
+      setIsProcessingSale(true); // Set processing flag to prevent double-clicks
+      
       // Calculate total without any tax
       const totalAmount = cart.reduce((sum, item) => {
         const finalPrice = item.adjustedPrice || item.price;
@@ -462,6 +515,8 @@ const formatPakistaniTime = (timeString: string): string => {
         description: `Error: ${error.message || 'Unknown error occurred'}`,
         variant: "destructive"
       });
+    } finally {
+      setIsProcessingSale(false); // Reset processing flag
     }
   };
 
@@ -878,62 +933,100 @@ const formatPakistaniTime = (timeString: string): string => {
               
             </div>
             
-            <div className="relative mb-4">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder="Search products by name or SKU..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 h-9 md:h-10 bg-background border-input text-sm"
-              />
+            <div className="flex gap-2 mb-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input
+                  placeholder="Search products by name or SKU..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 h-9 md:h-10 bg-background border-input text-sm"
+                />
+              </div>
+              
+              {/* Category Dropdown */}
+              <Select value={selectedCategory || "all"} onValueChange={(value) => setSelectedCategory(value === "all" ? null : value)}>
+                <SelectTrigger className="w-40 h-9 md:h-10 bg-background border-input">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent className="bg-background border-input shadow-lg z-50">
+                  <SelectItem value="all">All ({products.length})</SelectItem>
+                  {categories.map((category) => {
+                    const categoryCount = products.filter(p => p.category === category).length;
+                    return (
+                      <SelectItem key={category} value={category}>
+                        {category} ({categoryCount})
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+              
+              {/* Layout Dropdown */}
+              <Select value={productsLayout.toString()} onValueChange={(value) => handleLayoutChange(parseInt(value))}>
+                <SelectTrigger className="w-24 h-9 md:h-10 bg-background border-input">
+                  <LayoutGrid className="h-4 w-4" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-background border-input shadow-lg z-50">
+                  <SelectItem value="1">Slim</SelectItem>
+                  <SelectItem value="2">2</SelectItem>
+                  <SelectItem value="3">3</SelectItem>
+                  <SelectItem value="4">4</SelectItem>
+                  <SelectItem value="5">5</SelectItem>
+                  <SelectItem value="6">6</SelectItem>
+                  <SelectItem value="7">7</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
-            {/* Dynamic Category Filter Bar */}
-            <div className="bg-muted/50 border border-border rounded-lg p-2 mb-4">
-             
-              <div className="flex gap-1 flex-wrap">
-                <Button
-                  variant={selectedCategory === null ? "default" : "outline"}
-                  size="sm"
-                  className="h-7 md:h-8 text-xs"
-                  onClick={() => setSelectedCategory(null)}
-                >
-                  All ({products.length})
-                </Button>
-                {categories.map((category) => {
-                  const categoryCount = products.filter(p => p.category === category).length;
-                  return (
-                    <Button
-                      key={category}
-                      variant={selectedCategory === category ? "default" : "outline"}
-                      size="sm"
-                      className="h-7 md:h-8 text-xs"
-                      onClick={() => setSelectedCategory(category)}
-                    >
-                      {category} ({categoryCount})
-                    </Button>
-                  );
-                })}
-              </div>
-            </div>
           </div>
 
           {/* Responsive Products Grid - INTERNAL SCROLLING ONLY */}
           <div className="flex-1 overflow-auto px-3 md:px-4 pb-4 min-h-0">
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-2">
-              {sortedProducts.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  isPinned={pinnedProducts.includes(product.id)}
-                  quantityInput={quantityInputs[product.id] || ""}
-                  onTogglePin={togglePinProduct}
-                  onQuantityChange={handleQuantityInputChange}
-                  onAddToCart={addToCartWithCustomQuantity}
-                  onAddCustomQuantity={addCustomQuantityToCart}
-                />
-              ))}
-            </div>
+            {/* Conditional layout: slim view for single column, grid for others */}
+            {productsLayout === 1 ? (
+              <div className="space-y-2">
+                {sortedProducts.map((product, index) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    isPinned={pinnedProducts.includes(product.id)}
+                    quantityInput={quantityInputs[product.id] || ""}
+                    onTogglePin={togglePinProduct}
+                    onQuantityChange={handleQuantityInputChange}
+                    onAddToCart={addToCartWithCustomQuantity}
+                    onAddCustomQuantity={addCustomQuantityToCart}
+                    viewMode="slim"
+                    index={index + 1}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className={`grid gap-2 ${
+                productsLayout === 2 ? 'grid-cols-2' :
+                productsLayout === 3 ? 'grid-cols-2 md:grid-cols-3' :
+                productsLayout === 4 ? 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4' :
+                productsLayout === 5 ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5' :
+                productsLayout === 6 ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6' :
+                'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7'
+              }`}>
+                {sortedProducts.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    isPinned={pinnedProducts.includes(product.id)}
+                    quantityInput={quantityInputs[product.id] || ""}
+                    onTogglePin={togglePinProduct}
+                    onQuantityChange={handleQuantityInputChange}
+                    onAddToCart={addToCartWithCustomQuantity}
+                    onAddCustomQuantity={addCustomQuantityToCart}
+                    viewMode="card"
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -949,6 +1042,7 @@ const formatPakistaniTime = (timeString: string): string => {
           isCustomerDialogOpen={isCustomerDialogOpen}
           isQuickCustomerOpen={isQuickCustomerOpen}
           isCollapsed={isCartCollapsed}
+          isProcessingSale={isProcessingSale}
           onSetSelectedCustomer={setSelectedCustomer}
           onSetIsCustomerDialogOpen={setIsCustomerDialogOpen}
           onSetIsQuickCustomerOpen={setIsQuickCustomerOpen}
@@ -1047,13 +1141,14 @@ const formatPakistaniTime = (timeString: string): string => {
                 </div>
                 
                 <Button 
-                  className="w-full bg-green-600 hover:bg-green-700 text-white"
+                  className="w-full bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isProcessingSale}
                   onClick={() => {
                     handleCheckout();
                     setIsCartOpen(false);
                   }}
                 >
-                  Complete Sale ({paymentMethod})
+                  {isProcessingSale ? 'Processing Sale...' : `Complete Sale (${paymentMethod})`}
                 </Button>
               </div>
             )}

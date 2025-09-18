@@ -14,19 +14,22 @@ export const QuantitySuggestionPopup: React.FC<QuantitySuggestionPopupProps> = (
   onAddQuantity,
   disabled = false
 }) => {
-  // Generate suggested quantities based on product stock and common use patterns
+  // Generate suggested quantities with decimal values for better usability
   const getSuggestedQuantities = () => {
-    const suggestions = [1, 2, 5];
+    const suggestions = [0.25, 0.5, 0.75, 1.25, 1.5, 1.75];
+    
+    // Always include these basic quantities
+    suggestions.push(1, 2);
     
     // Add more suggestions based on stock levels
+    if (product.stock > 5) {
+      suggestions.push(5);
+    }
     if (product.stock > 10) {
       suggestions.push(10);
     }
     if (product.stock > 25) {
       suggestions.push(25);
-    }
-    if (product.stock > 50) {
-      suggestions.push(50);
     }
     
     // Filter out quantities that exceed stock (unless incomplete quantity)
@@ -34,7 +37,7 @@ export const QuantitySuggestionPopup: React.FC<QuantitySuggestionPopupProps> = (
       return suggestions.filter(qty => qty <= product.stock);
     }
     
-    return suggestions;
+    return suggestions.sort((a, b) => a - b); // Sort in ascending order
   };
 
   const suggestedQuantities = getSuggestedQuantities();

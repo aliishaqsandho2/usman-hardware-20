@@ -108,7 +108,9 @@ const OverviewCards = () => {
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950 dark:to-emerald-900 border-emerald-200 dark:border-emerald-800">
+     
+      <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950 dark:to-emerald-900 border-emerald-200 dark:border-emerald-800 col-span-1 shadow-xl border-0 rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-2xl">
+
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium text-emerald-700 dark:text-emerald-300">Today's Profit</CardTitle>
           <div className="p-2 bg-emerald-100 dark:bg-emerald-800 rounded-full">
@@ -131,7 +133,7 @@ const OverviewCards = () => {
         </CardContent>
       </Card>
 
-      <Card className="bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950 dark:to-amber-900 border-amber-200 dark:border-amber-800">
+      <Card className="bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950 dark:to-amber-900 border-amber-200 dark:border-amber-800 col-span-1 shadow-xl border-0 rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-2xl">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium text-amber-700 dark:text-amber-300">Last Week Profit</CardTitle>
           <div className="p-2 bg-amber-100 dark:bg-amber-800 rounded-full">
@@ -154,7 +156,7 @@ const OverviewCards = () => {
         </CardContent>
       </Card>
 
-      <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200 dark:border-blue-800">
+      <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200 dark:border-blue-800 col-span-1 shadow-xl border-0 rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-2xl">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">Last Month Profit</CardTitle>
           <div className="p-2 bg-blue-100 dark:bg-blue-800 rounded-full">
@@ -177,7 +179,7 @@ const OverviewCards = () => {
         </CardContent>
       </Card>
 
-      <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 border-purple-200 dark:border-purple-800">
+      <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 border-purple-200 dark:border-purple-800 col-span-1 shadow-xl border-0 rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-2xl">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium text-purple-700 dark:text-purple-300">YTD Profit</CardTitle>
           <div className="p-2 bg-purple-100 dark:bg-purple-800 rounded-full">
@@ -233,7 +235,7 @@ const PerformanceTab = () => {
       {/* Enhanced Daily Performance vs Target */}
       <div className="grid gap-6 md:grid-cols-2">
         {/* Beautiful Target Achievement Card */}
-        <Card className="bg-gradient-to-br from-emerald-50 via-blue-50 to-purple-50 dark:from-emerald-950 dark:via-blue-950 dark:to-purple-950 border-0 shadow-xl">
+        <Card className="bg-gradient-to-br from-emerald-50 via-blue-50 to-purple-50 dark:from-emerald-950 dark:via-blue-950 dark:to-purple-950 border-0 shadow-xl ">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl bg-gradient-to-r from-emerald-600 via-blue-600 to-purple-600 bg-clip-text text-transparent">
               <Target className="h-6 w-6 text-emerald-600" />

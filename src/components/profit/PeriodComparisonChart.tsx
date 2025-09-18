@@ -97,7 +97,7 @@ export function PeriodComparisonChart({ data, isLoading }: PeriodComparisonChart
   return (
     <div className="space-y-6">
       {/* Beautiful Unified Chart */}
-      <Card className="bg-gradient-to-br from-slate-50/50 via-white to-slate-50/50 dark:from-slate-900/50 dark:via-slate-800 dark:to-slate-900/50 border-0 shadow-xl">
+      <Card className="col-span-1 shadow-xl border-0 rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-2xl">
         <CardHeader className="pb-6">
           <div className="flex items-center justify-between">
             <div>
@@ -128,7 +128,7 @@ export function PeriodComparisonChart({ data, isLoading }: PeriodComparisonChart
           </div>
 
           {/* Enhanced Area Chart */}
-          <ResponsiveContainer width="100%" height={400}>
+          <ResponsiveContainer  width="100%" height={400}>
             <AreaChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
               <defs>
                 <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
@@ -172,11 +172,21 @@ export function PeriodComparisonChart({ data, isLoading }: PeriodComparisonChart
               />
               
               <YAxis 
+                yAxisId="left"
                 stroke="hsl(var(--muted-foreground))"
                 fontSize={12}
                 fontWeight={500}
                 tickFormatter={(value) => formatNumber(value)}
                 className="text-slate-600 dark:text-slate-400"
+              />
+              <YAxis 
+                yAxisId="right"
+                orientation="right"
+                stroke="#10B981"
+                fontSize={12}
+                fontWeight={500}
+                tickFormatter={(value) => formatNumber(value)}
+                className="text-emerald-600 dark:text-emerald-400"
               />
               
               <Tooltip 
@@ -205,6 +215,7 @@ export function PeriodComparisonChart({ data, isLoading }: PeriodComparisonChart
               <Area
                 type="monotone"
                 dataKey="revenueNum"
+                yAxisId="left"
                 stroke="#3B82F6"
                 strokeWidth={3}
                 fill="url(#revenueGradient)"
@@ -229,6 +240,7 @@ export function PeriodComparisonChart({ data, isLoading }: PeriodComparisonChart
               <Area
                 type="monotone"
                 dataKey="profitNum"
+                yAxisId="right"
                 stroke="#10B981"
                 strokeWidth={3}
                 fill="url(#profitGradient)"
