@@ -16,16 +16,20 @@ import {
   ShoppingCart,
   Truck,
   Play,
-  FileText,
   TrendingUp,
   Clipboard,
   Receipt,
   BarChart3,
   Settings,
   Send,
-  Plus
+  Plus,
+  CheckCircle,
+  AlertCircle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { GeminiService } from '@/services/geminiApi';
+import { getAllApiEndpoints, getEndpointsByAction } from '@/data/apiEndpoints';
+import { apiConfig } from '@/utils/apiConfig';
 
 const AutoMate = () => {
   const [isRecording, setIsRecording] = useState(false);
@@ -191,36 +195,107 @@ const AutoMate = () => {
     }
 
     setIsProcessing(true);
-    setProcessingStep('Connecting to OpenAI...');
+    setProcessingStep('Connecting to Gemini AI...');
     
-    const steps = [
-      'Analyzing your input...',
-      'Processing with AI models...',
-      'Generating automation commands...',
-      'Preparing database operations...',
-      'Finalizing process...'
-    ];
-    
-    for (let i = 0; i < steps.length; i++) {
-      setProcessingStep(steps[i]);
-      await new Promise(resolve => setTimeout(resolve, 1200));
+    try {
+      const availableEndpoints = getEndpointsByAction(selectedAction);
+      let result: any = null;
+
+      if (audioBlob) {
+        // Process voice command
+        setProcessingStep('Transcribing voice command...');
+        
+        // For demo purposes, we'll simulate voice transcription
+        // In production, you'd use speech-to-text API
+        const simulatedVoiceText = "Show me all products and their stock levels";
+        
+        setProcessingStep('Processing voice command with AI...');
+        result = await GeminiService.processVoiceCommand(
+          simulatedVoiceText,
+          selectedAction,
+          availableEndpoints
+        );
+      } else if (uploadedImage) {
+        // Process image
+        setProcessingStep('Analyzing uploaded image...');
+        
+        // Convert image to base64
+        const base64 = uploadedImage.split(',')[1];
+        result = await GeminiService.processImageAnalysis(
+          base64,
+          selectedAction,
+          availableEndpoints
+        );
+      } else {
+        // Process selected action only
+        setProcessingStep('Generating automation suggestions...');
+        result = await GeminiService.processVoiceCommand(
+          `Help me manage ${selectedAction.replace('-', ' ')}`,
+          selectedAction,
+          availableEndpoints
+        );
+      }
+
+      setProcessingStep('Executing API operations...');
+      
+      // Execute API calls if suggested by AI
+      if (result.apiCall && result.apiCall.endpoint) {
+        try {
+          const response = await fetch(result.apiCall.endpoint, {
+            method: result.apiCall.method,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: result.apiCall.payload ? JSON.stringify(result.apiCall.payload) : undefined,
+          });
+          
+          const apiData = await response.json();
+          result.apiResponse = apiData;
+        } catch (apiError) {
+          console.error('API call failed:', apiError);
+          result.apiError = 'Failed to execute API call';
+        }
+      }
+
+      setProcessingStep('');
+      setIsProcessing(false);
+      
+      const aiResponse = {
+        id: messages.length + 1,
+        type: 'ai' as const,
+        content: result.response + (result.apiResponse ? `\n\n✅ API Operation completed successfully. ${result.apiResponse.success ? result.apiResponse.message || 'Operation successful' : 'Check the data for details.'}` : ''),
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, aiResponse]);
+      
+      // Reset inputs after successful processing
+      setAudioBlob(null);
+      setUploadedImage(null);
+      
+      toast({
+        title: "AI Processing Complete",
+        description: result.intent || "Automation completed successfully",
+      });
+      
+    } catch (error) {
+      console.error('AI Processing failed:', error);
+      setProcessingStep('');
+      setIsProcessing(false);
+      
+      const errorResponse = {
+        id: messages.length + 1,
+        type: 'ai' as const,
+        content: `❌ Sorry, I encountered an error while processing your request: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorResponse]);
+      
+      toast({
+        title: "Processing Failed",
+        description: "There was an error processing your request. Please try again.",
+        variant: "destructive"
+      });
     }
-    
-    setProcessingStep('');
-    setIsProcessing(false);
-    
-    const aiResponse = {
-      id: messages.length + 1,
-      type: 'ai' as const,
-      content: `✅ Processing complete! I've analyzed your request for ${selectedAction.replace('-', ' ')} operations. The AI has generated the necessary commands and is ready to execute the automation.`,
-      timestamp: new Date()
-    };
-    setMessages(prev => [...prev, aiResponse]);
-    
-    toast({
-      title: "AI Processing Complete",
-      description: "Automation commands are ready for execution",
-    });
   };
 
   return (
@@ -251,8 +326,8 @@ const AutoMate = () => {
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
-          {/* Quick Actions Panel */}
-          <Card className="lg:col-span-1">
+          {/* Quick Actions Panel - Now Sticky */}
+          <Card className="lg:col-span-1 lg:sticky lg:top-6 lg:self-start">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Settings className="h-5 w-5" />
@@ -427,31 +502,6 @@ const AutoMate = () => {
           </Card>
         </div>
 
-        {/* System Status */}
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              AI System Status
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-3 gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-sm">OpenAI Connected</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-sm">Gemini Ready</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-3 h-3 bg-yellow-500 rounded-full animate-pulse"></div>
-                <span className="text-sm">Backend Pending</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
