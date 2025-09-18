@@ -3,6 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { 
   Bot, 
   Mic, 
@@ -24,7 +26,8 @@ import {
   Send,
   Plus,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  FileText
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { GeminiService } from '@/services/geminiApi';
@@ -38,11 +41,14 @@ const AutoMate = () => {
   const [processingStep, setProcessingStep] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedAction, setSelectedAction] = useState<string | null>(null);
+  const [textInput, setTextInput] = useState('');
+  const [showConsentDialog, setShowConsentDialog] = useState(false);
+  const [aiPlan, setAiPlan] = useState<any>(null);
   const [messages, setMessages] = useState<Array<{id: number, type: 'user' | 'ai', content: string, timestamp: Date}>>([
     {
       id: 1,
       type: 'ai',
-      content: 'Welcome to AutoMate AI! I can help you manage your business operations through voice commands and image processing. What would you like to do today?',
+      content: 'Welcome to AutoMate AI! I can help you manage your business operations through voice commands, text input, and image processing. What would you like to do today?',
       timestamp: new Date()
     }
   ]);
@@ -147,18 +153,126 @@ const AutoMate = () => {
     }
   };
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onload = (e) => {
         setUploadedImage(e.target?.result as string);
         toast({
-          title: "Image Uploaded",
-          description: "Ready for AI processing",
+          title: "File Uploaded",
+          description: `${file.name} ready for AI processing`,
         });
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!textInput.trim()) return;
+    
+    const userMessage = {
+      id: messages.length + 1,
+      type: 'user' as const,
+      content: textInput,
+      timestamp: new Date()
+    };
+    
+    setMessages(prev => [...prev, userMessage]);
+    setTextInput('');
+    
+    // Process with AI if action is selected
+    if (selectedAction) {
+      setTimeout(() => processTextWithAI(textInput), 500);
+    } else {
+      // AI response suggesting to select action
+      setTimeout(() => {
+        const aiResponse = {
+          id: messages.length + 2,
+          type: 'ai' as const,
+          content: 'I understand your request. Please select a category from the Quick Actions to help me provide more targeted assistance with your automation needs.',
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, aiResponse]);
+      }, 1000);
+    }
+  };
+
+  const processTextWithAI = async (text: string) => {
+    try {
+      const availableEndpoints = getEndpointsByAction(selectedAction!);
+      const result = await GeminiService.processVoiceCommand(text, selectedAction!, availableEndpoints);
+      
+      // Show consent dialog instead of direct execution
+      setAiPlan(result);
+      setShowConsentDialog(true);
+      
+    } catch (error) {
+      console.error('AI Processing failed:', error);
+      const errorResponse = {
+        id: messages.length + 1,
+        type: 'ai' as const,
+        content: `❌ Sorry, I encountered an error while processing your request. Please try again.`,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorResponse]);
+    }
+  };
+
+  const executeAiPlan = async () => {
+    setShowConsentDialog(false);
+    setIsProcessing(true);
+    setProcessingStep('Executing AI plan...');
+    
+    try {
+      // Execute API calls if suggested by AI
+      if (aiPlan.apiCall && aiPlan.apiCall.endpoint) {
+        setProcessingStep('Executing API operations...');
+        
+        const response = await fetch(aiPlan.apiCall.endpoint, {
+          method: aiPlan.apiCall.method,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: aiPlan.apiCall.payload ? JSON.stringify(aiPlan.apiCall.payload) : undefined,
+        });
+        
+        const apiData = await response.json();
+        aiPlan.apiResponse = apiData;
+      }
+      
+      const aiResponse = {
+        id: messages.length + 1,
+        type: 'ai' as const,
+        content: aiPlan.response + (aiPlan.apiResponse ? `\n\n✅ API Operation completed successfully. ${aiPlan.apiResponse.success ? aiPlan.apiResponse.message || 'Operation successful' : 'Check the data for details.'}` : ''),
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, aiResponse]);
+      
+      toast({
+        title: "AI Plan Executed",
+        description: "Automation completed successfully",
+      });
+      
+    } catch (error) {
+      console.error('Plan execution failed:', error);
+      const errorResponse = {
+        id: messages.length + 1,
+        type: 'ai' as const,
+        content: `❌ Failed to execute the plan: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorResponse]);
+      
+      toast({
+        title: "Execution Failed",
+        description: "There was an error executing the AI plan",
+        variant: "destructive"
+      });
+    } finally {
+      setIsProcessing(false);
+      setProcessingStep('');
+      setAiPlan(null);
     }
   };
 
@@ -185,10 +299,10 @@ const AutoMate = () => {
   };
 
   const processWithAI = async () => {
-    if (!selectedAction) {
+    if (!selectedAction && !textInput.trim()) {
       toast({
         title: "Select an Action",
-        description: "Please select what you'd like to work with first",
+        description: "Please select what you'd like to work with first or type a message",
         variant: "destructive"
       });
       return;
@@ -198,7 +312,7 @@ const AutoMate = () => {
     setProcessingStep('Connecting to Gemini AI...');
     
     try {
-      const availableEndpoints = getEndpointsByAction(selectedAction);
+      const availableEndpoints = selectedAction ? getEndpointsByAction(selectedAction) : getAllApiEndpoints();
       let result: any = null;
 
       if (audioBlob) {
@@ -212,70 +326,49 @@ const AutoMate = () => {
         setProcessingStep('Processing voice command with AI...');
         result = await GeminiService.processVoiceCommand(
           simulatedVoiceText,
-          selectedAction,
+          selectedAction || 'general',
           availableEndpoints
         );
       } else if (uploadedImage) {
         // Process image
-        setProcessingStep('Analyzing uploaded image...');
+        setProcessingStep('Analyzing uploaded document...');
         
         // Convert image to base64
         const base64 = uploadedImage.split(',')[1];
         result = await GeminiService.processImageAnalysis(
           base64,
-          selectedAction,
+          selectedAction || 'general',
+          availableEndpoints
+        );
+      } else if (textInput.trim()) {
+        // Process text input
+        setProcessingStep('Processing your request with AI...');
+        result = await GeminiService.processVoiceCommand(
+          textInput,
+          selectedAction || 'general',
           availableEndpoints
         );
       } else {
         // Process selected action only
         setProcessingStep('Generating automation suggestions...');
         result = await GeminiService.processVoiceCommand(
-          `Help me manage ${selectedAction.replace('-', ' ')}`,
-          selectedAction,
+          `Help me manage ${selectedAction!.replace('-', ' ')}`,
+          selectedAction!,
           availableEndpoints
         );
       }
 
-      setProcessingStep('Executing API operations...');
+      // Show consent dialog instead of direct execution
+      setAiPlan(result);
+      setShowConsentDialog(true);
       
-      // Execute API calls if suggested by AI
-      if (result.apiCall && result.apiCall.endpoint) {
-        try {
-          const response = await fetch(result.apiCall.endpoint, {
-            method: result.apiCall.method,
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: result.apiCall.payload ? JSON.stringify(result.apiCall.payload) : undefined,
-          });
-          
-          const apiData = await response.json();
-          result.apiResponse = apiData;
-        } catch (apiError) {
-          console.error('API call failed:', apiError);
-          result.apiError = 'Failed to execute API call';
-        }
-      }
-
       setProcessingStep('');
       setIsProcessing(false);
       
-      const aiResponse = {
-        id: messages.length + 1,
-        type: 'ai' as const,
-        content: result.response + (result.apiResponse ? `\n\n✅ API Operation completed successfully. ${result.apiResponse.success ? result.apiResponse.message || 'Operation successful' : 'Check the data for details.'}` : ''),
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, aiResponse]);
-      
-      // Reset inputs after successful processing
+      // Reset inputs after processing
       setAudioBlob(null);
       setUploadedImage(null);
-      
-      toast({
-        title: "AI Processing Complete",
-        description: result.intent || "Automation completed successfully",
-      });
+      setTextInput('');
       
     } catch (error) {
       console.error('AI Processing failed:', error);
@@ -326,30 +419,29 @@ const AutoMate = () => {
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
-          {/* Quick Actions Panel - Now Sticky */}
+          {/* Quick Actions Panel - Compact & Sticky */}
           <Card className="lg:col-span-1 lg:sticky lg:top-6 lg:self-start">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Settings className="h-5 w-5" />
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Settings className="h-4 w-4" />
                 Quick Actions
               </CardTitle>
-              <CardDescription>
-                Select what you'd like to work with
+              <CardDescription className="text-xs">
+                Select context
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-2">
+            <CardContent className="space-y-1">
               {quickActions.map((action, index) => (
                 <Button
                   key={index}
                   variant={selectedAction === action.action ? "default" : "outline"}
-                  className="w-full justify-start h-auto p-4 text-left"
+                  className="w-full justify-start h-auto p-2 text-left"
                   onClick={() => handleActionSelect(action.action)}
                 >
-                  <div className="flex items-start gap-3">
-                    <action.icon className="h-5 w-5 mt-0.5" />
+                  <div className="flex items-center gap-2">
+                    <action.icon className="h-3 w-3" />
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium">{action.title}</div>
-                      <div className="text-xs text-muted-foreground mt-1">{action.description}</div>
+                      <div className="text-xs font-medium">{action.title}</div>
                     </div>
                   </div>
                 </Button>
@@ -404,6 +496,23 @@ const AutoMate = () => {
               <div className="space-y-4">
                 <Separator />
                 
+                {/* Text Input */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Chat with AI</label>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Type your automation request here..."
+                      value={textInput}
+                      onChange={(e) => setTextInput(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                      className="flex-1"
+                    />
+                    <Button onClick={handleSendMessage} size="sm" disabled={!textInput.trim()}>
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+                
                 {/* Voice and Image Controls */}
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -445,12 +554,12 @@ const AutoMate = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Image Upload</label>
+                    <label className="text-sm font-medium">Document Upload</label>
                     <div className="flex gap-2">
                       <input
                         type="file"
-                        accept="image/*"
-                        onChange={handleImageUpload}
+                        accept="image/*,.pdf,.doc,.docx"
+                        onChange={handleFileUpload}
                         ref={fileInputRef}
                         className="hidden"
                       />
@@ -461,7 +570,7 @@ const AutoMate = () => {
                         className="flex-1"
                       >
                         <Upload className="h-4 w-4 mr-2" />
-                        Upload Image
+                        Upload
                       </Button>
                     </div>
                     
@@ -481,7 +590,7 @@ const AutoMate = () => {
                 {/* Process Button */}
                 <Button
                   onClick={processWithAI}
-                  disabled={isProcessing || (!audioBlob && !uploadedImage && !selectedAction)}
+                  disabled={isProcessing || (!audioBlob && !uploadedImage && !selectedAction && !textInput.trim())}
                   className="w-full"
                   size="lg"
                 >
@@ -498,6 +607,64 @@ const AutoMate = () => {
                   )}
                 </Button>
               </div>
+
+              {/* Consent Dialog */}
+              <Dialog open={showConsentDialog} onOpenChange={setShowConsentDialog}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <AlertCircle className="h-5 w-5 text-orange-500" />
+                      AI Execution Plan
+                    </DialogTitle>
+                    <DialogDescription>
+                      Review the AI's suggested automation plan before execution
+                    </DialogDescription>
+                  </DialogHeader>
+                  
+                  {aiPlan && (
+                    <div className="space-y-4">
+                      <div>
+                        <h4 className="font-semibold">Intent:</h4>
+                        <p className="text-sm text-muted-foreground">{aiPlan.intent}</p>
+                      </div>
+                      
+                      <div>
+                        <h4 className="font-semibold">Planned Actions:</h4>
+                        <p className="text-sm text-muted-foreground">{aiPlan.action}</p>
+                      </div>
+                      
+                      {aiPlan.apiCall && (
+                        <div>
+                          <h4 className="font-semibold">API Operations:</h4>
+                          <div className="bg-muted p-3 rounded text-sm">
+                            <div><strong>Endpoint:</strong> {aiPlan.apiCall.endpoint}</div>
+                            <div><strong>Method:</strong> {aiPlan.apiCall.method}</div>
+                            {aiPlan.apiCall.payload && (
+                              <div><strong>Data:</strong> {JSON.stringify(aiPlan.apiCall.payload, null, 2)}</div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="bg-yellow-50 p-3 rounded border border-yellow-200">
+                        <p className="text-sm text-yellow-800">
+                          ⚠️ This will execute real API operations on your system. Please review carefully.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setShowConsentDialog(false)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={executeAiPlan} className="bg-green-600 hover:bg-green-700">
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Execute Plan
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </CardContent>
           </Card>
         </div>
